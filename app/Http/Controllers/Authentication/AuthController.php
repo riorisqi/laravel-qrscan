@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Validator;
+use Hashids\Hashids;
+use Illuminate\Support\Facades\Crypt;
 
 class AuthController extends Controller
 {
@@ -39,14 +41,15 @@ class AuthController extends Controller
      *
      * @return JsonResponse
      */
-    public function createNewToken($token){
-        $hashedId= $this->hashUserId(auth()->user()->id);
+    public function createNewToken($token, $pass){
+        $hashedId = $this->hashUserId(auth()->user()->id);
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'token_expires_in' => auth()->factory()->getTTL() * 60,
             'user_qr_passcode' => $hashedId,
+            'user_qr_token' => $pass,
             'user' => auth()->user()
         ]);
     }
@@ -57,6 +60,10 @@ class AuthController extends Controller
      * @return JsonResponse
      */
     public function login(Request $request){
+        $input = json_decode($request->getContent(), true);
+        $pass = $input['password'];
+        $encryptPass = Crypt::encrypt($pass);
+        
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string|min:6',
@@ -71,7 +78,7 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        return $this->createNewToken($token);
+        return $this->createNewToken($token, $encryptPass);
     }
 
     /**
@@ -83,7 +90,8 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
-            'password' => 'required|string|confirmed|min:6',
+            'password' => 'required|min:6|confirmed',
+            'password_confirmation' => 'required ',
         ]);
         if($validator->fails()){
             return response()->json($validator->errors()->toJson(), 400);

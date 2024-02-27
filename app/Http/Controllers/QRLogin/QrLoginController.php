@@ -12,6 +12,10 @@ use Hashids\Hashids;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use App\Models\User;
+use Validator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Crypt;
 
 class QrLoginController extends Controller
 {
@@ -21,7 +25,13 @@ class QrLoginController extends Controller
      * @return void
      */
     public function __construct(){
-        $this->middleware('auth:api', ['except' => ['createQrCode', 'webLoginEntry']]);
+        $this->middleware('auth:api',
+            ['except' => [
+                'createQrCode',
+                'isScanQrcodeWeb',
+                'webLoginEntry'
+            ]]
+        );
     }
 
     /**
@@ -129,7 +139,8 @@ class QrLoginController extends Controller
     public function isMobileQrScan(Request $request){
         $key = $_GET['key'];
         $url = url('');
-        $headerpasscode = $request->header('userpasscode');
+        $headerqrpasscode = $request->header('userpasscode');
+        $headerqrtoken = $request->header('userqrtoken');
         
         $http = $url .'/api/qrlogin/mobile/login'; // login api url confirmation
 
@@ -155,8 +166,8 @@ class QrLoginController extends Controller
         $mem->set($key, $res, 180);
 
         $http =
-            $http .'?key='.$key.'&type=scan&login='.$headerpasscode
-            .'&sign='.$data['sign'].'&qrpath='.$data['qrpath'];
+            $http .'?key='.$key.'&type=scan&login='.$headerqrpasscode
+            .'&loginToken='.$headerqrtoken.'&sign='.$data['sign'].'&qrpath='.$data['qrpath'];
 
         $return = array(
             'status'=>1,
@@ -173,6 +184,7 @@ class QrLoginController extends Controller
      */
     public function qrCodeDoLogin(Request $request){
         $login = $_GET['login']; // get user qr passcode
+        $token = $_GET['loginToken']; // get user qr token
         $key = $_GET['key'];
         $qrPath = $_GET['qrpath'];
 
@@ -194,6 +206,7 @@ class QrLoginController extends Controller
         } else {
             if($login){
                 $data['user_id'] = $login;
+                $data['user_token'] = $token;
                 $res = json_encode($data);
                 $mem->set($key, $res, 180);
 
@@ -263,19 +276,35 @@ class QrLoginController extends Controller
         );
 
         $data = json_decode($mem->get($key),true);
+
         
         if(empty($data)){
             $return = array(
                 'status' => 2,
                 'msg' => 'expired'
             );
-
+            
             return response()->json($return, 200);
         } else {
-            if(isset($data['user_id'])){
-                $userid = $this->unHashUserId($data['user_id']);
-                $user = auth()->loginUsingId($userid, true);
-                $token = auth()->attempt($user);
+            if (isset($data['user_id']) && isset($data['user_token'])){
+                $unHashedUserId = $this->unHashUserId($data['user_id']);
+                $decryptPass = Crypt::decrypt($data['user_token']);
+                
+                // Validate user ID
+                $user = User::where('id', $unHashedUserId)->first();
+
+                $validator = Validator::make(
+                    [
+                        'email' => $user->email,
+                        'password' => $decryptPass
+                    ],
+                    [
+                        'email' => 'required|email',
+                        'password' => 'required|string|min:6',
+                    ]
+                );
+
+                $token = auth()->attempt($validator->validated());
 
                 if(!$token) {
                     return response()->json(['error' => 'Unauthorized'], 401);
@@ -287,7 +316,7 @@ class QrLoginController extends Controller
                     'access_token' => $token,
                     'token_type' => 'bearer',
                     'token_expires_in' => auth()->factory()->getTTL() * 60,
-                    'user' => $user
+                    'user' => auth()->user()
                 );
 
                 return response()->json($return, 200);
