@@ -276,7 +276,6 @@ class QrLoginController extends Controller
         );
 
         $data = json_decode($mem->get($key),true);
-
         
         if(empty($data)){
             $return = array(
