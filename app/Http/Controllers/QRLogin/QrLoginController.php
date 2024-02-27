@@ -21,7 +21,7 @@ class QrLoginController extends Controller
      * @return void
      */
     public function __construct(){
-        $this->middleware('auth:api');
+        $this->middleware('auth:api', ['except' => ['createQrCode', 'webLoginEntry']]);
     }
 
     /**
@@ -88,6 +88,9 @@ class QrLoginController extends Controller
 
             return response()->json($return, 404);
         }
+
+        // to show the qr in other web
+        $qrAssets = asset('assets/img/qrcodeimg/'. $key .'.png');
         
         // store key session and sign in Memcached, expiration time is three minutes
         $mem = new \Memcached();
@@ -111,7 +114,7 @@ class QrLoginController extends Controller
   
         $return = array(
             'status' => 1,
-            'msg' => $value,
+            'msg' => $qrAssets,
             'key' => $key
         );
         
@@ -252,16 +255,7 @@ class QrLoginController extends Controller
     * @return JsonResponse
     */
     public function webLoginEntry(Request $request){
-        $key=$request['key'];
-        if(empty($key)){
-            $return = array(
-                'status' => 2,
-                'msg' => 'key not provided'
-            );
-
-            return response()->json($return, 200);
-        }
-
+        $key = $request['key'];
         $mem = new \Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
@@ -279,9 +273,13 @@ class QrLoginController extends Controller
             return response()->json($return, 200);
         } else {
             if(isset($data['user_id'])){
-                $userid=$this->unHashUserId($data['user_id']);
+                $userid = $this->unHashUserId($data['user_id']);
                 $user = auth()->loginUsingId($userid, true);
                 $token = auth()->attempt($user);
+
+                if(!$token) {
+                    return response()->json(['error' => 'Unauthorized'], 401);
+                }
 
                 $return = array(
                     'status' => 1,
