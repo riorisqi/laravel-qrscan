@@ -33,7 +33,6 @@ class DeleteQRFiles extends Command
         
         $files = Storage::disk($disk)->allFiles($directory);
         foreach ($files as $file) {
-            Log::info($file);
             $time = Storage::disk($disk)->lastModified($file);
             $fileModifiedDateTime = Carbon::parse($time);
                 
