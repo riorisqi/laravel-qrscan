@@ -45,6 +45,7 @@ class AuthController extends Controller
         $hashedId = $this->hashUserId(auth()->user()->id);
 
         return response()->json([
+            'status' => 'success',
             'access_token' => $token,
             'token_type' => 'bearer',
             'token_expires_in' => auth()->factory()->getTTL() * 60,
@@ -75,7 +76,10 @@ class AuthController extends Controller
         $token = auth()->attempt($validator->validated());
         
         if(!$token) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
         return $this->createNewToken($token, $encryptPass);
@@ -101,6 +105,7 @@ class AuthController extends Controller
                     ['password' => bcrypt($request->password)]
                 ));
         return response()->json([
+            'status' => 'success',
             'message' => 'User successfully registered',
             'user' => $user
         ], 201);
@@ -113,7 +118,10 @@ class AuthController extends Controller
      */
     public function logout() {
         auth()->logout();
-        return response()->json(['message' => 'User successfully signed out']);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User successfully signed out'
+        ]);
     }
 
     /**
@@ -122,7 +130,15 @@ class AuthController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function refreshToken() {
-        return $this->createNewToken(auth()->refresh());
+        $token = auth()->getToken();
+
+        return response()->json([
+            'status' => 'success',
+            'user' => auth()->user(),
+            'access_token' => auth()->refresh($token),
+            'token_type' => 'bearer',
+            'token_expires_in' => auth()->factory()->getTTL() * 60,
+        ]);
     }
     
     /**

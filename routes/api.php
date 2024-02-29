@@ -27,6 +27,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refreshToken', [AuthController::class, 'refreshToken']);
+    Route::get('/profile', [AuthController::class, 'userProfile']);
 });
 
 // QR Code Login
