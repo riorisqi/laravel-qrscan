@@ -7,6 +7,6 @@ return [
     ],
 
     'qr_url_api' => [
-        'host' => ''
+        'host' => 'http://172.20.8.136:8000'
     ]
 ];
