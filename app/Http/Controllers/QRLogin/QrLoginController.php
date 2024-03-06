@@ -140,7 +140,6 @@ class QrLoginController extends Controller
         $key = $_GET['key'];
         $url = Config::get('constant.qr_url_api.host');
         $headerqrpasscode = $request->header('userpasscode');
-        $headerqrtoken = $request->header('userqrtoken');
         
         $http = $url .'/api/qrlogin/mobile/login'; // login api url confirmation
 
@@ -167,7 +166,7 @@ class QrLoginController extends Controller
 
         $http =
             $http .'?key='.$key.'&type=scan&login='.$headerqrpasscode
-            .'&loginToken='.$headerqrtoken.'&sign='.$data['sign'].'&qrpath='.$data['qrpath'];
+            .'&sign='.$data['sign'].'&qrpath='.$data['qrpath'];
 
         $return = array(
             'status'=>1,
@@ -184,7 +183,6 @@ class QrLoginController extends Controller
      */
     public function qrCodeDoLogin(Request $request){
         $login = $_GET['login']; // get user qr passcode
-        $token = $_GET['loginToken']; // get user qr token
         $key = $_GET['key'];
         $qrPath = $_GET['qrpath'];
 
@@ -206,7 +204,6 @@ class QrLoginController extends Controller
         } else {
             if($login){
                 $data['user_id'] = $login;
-                $data['user_token'] = $token;
                 $res = json_encode($data);
                 $mem->set($key, $res, 180);
 
@@ -285,36 +282,32 @@ class QrLoginController extends Controller
             
             return response()->json($return, 200);
         } else {
-            if (isset($data['user_id']) && isset($data['user_token'])){
+            if (isset($data['user_id'])){
                 $unHashedUserId = $this->unHashUserId($data['user_id']);
-                $decryptPass = Crypt::decrypt($data['user_token']);
-                
+
+                Validator::make(
+                    ['id' => $unHashedUserId],
+                    ['id' => 'required']
+                );
+
                 // Validate user ID
                 $user = User::where('id', $unHashedUserId)->first();
 
-                $validator = Validator::make(
-                    [
-                        'email' => $user->email,
-                        'password' => $decryptPass
-                    ],
-                    [
-                        'email' => 'required|email',
-                        'password' => 'required|string|min:6',
-                    ]
-                );
-
-                $token = auth()->attempt($validator->validated());
-
-                if(!$token) {
-                    return response()->json(['error' => 'Unauthorized'], 401);
+                if (!$user) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Unauthorized'
+                    ], 401);
                 }
+
+                $authToken = auth()->login($user);
 
                 $return = array(
                     'status' => 1,
                     'msg' => 'login success',
-                    'access_token' => $token,
+                    'access_token' => $authToken,
                     'token_type' => 'bearer',
-                    'token_expires_in' => auth()->factory()->getTTL() * 1440,
+                    'token_expires_in' => auth()->factory()->getTTL(),
                     'user' => auth()->user()
                 );
 

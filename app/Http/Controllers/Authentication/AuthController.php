@@ -41,7 +41,7 @@ class AuthController extends Controller
      *
      * @return JsonResponse
      */
-    public function createNewToken($token, $pass){
+    public function createNewToken($token){
         $hashedId = $this->hashUserId(auth()->user()->id);
 
         return response()->json([
@@ -50,7 +50,6 @@ class AuthController extends Controller
             'token_type' => 'bearer',
             'token_expires_in' => auth()->factory()->getTTL() * 1440,
             'user_qr_passcode' => $hashedId,
-            'user_qr_token' => $pass,
             'user' => auth()->user()
         ]);
     }
@@ -61,10 +60,6 @@ class AuthController extends Controller
      * @return JsonResponse
      */
     public function login(Request $request){
-        $input = json_decode($request->getContent(), true);
-        $pass = $input['password'];
-        $encryptPass = Crypt::encrypt($pass);
-        
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string|min:6',
@@ -82,7 +77,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        return $this->createNewToken($token, $encryptPass);
+        return $this->createNewToken($token);
     }
 
     /**
@@ -130,12 +125,10 @@ class AuthController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function refreshToken() {
-        $token = auth()->getToken();
-
         return response()->json([
             'status' => 'success',
             'user' => auth()->user(),
-            'access_token' => auth()->refresh($token),
+            'access_token' => auth()->refresh(),
             'token_type' => 'bearer',
             'token_expires_in' => auth()->factory()->getTTL() * 1440,
         ]);
