@@ -70,7 +70,7 @@ class QrLoginController extends Controller
      * @return JsonResponse
      */
     public function createQrCode(){
-        $url = url('');
+        $url = Config::get('constant.qr_url_api.host');
         $http = $url .'/api/qrlogin/mobile/scan'; // get url for qr code value
 
         $key = Str::random(30);
@@ -138,7 +138,7 @@ class QrLoginController extends Controller
      */
     public function isMobileQrScan(Request $request){
         $key = $_GET['key'];
-        $url = url('');
+        $url = Config::get('constant.qr_url_api.host');
         $headerqrpasscode = $request->header('userpasscode');
         $headerqrtoken = $request->header('userqrtoken');
         
@@ -314,7 +314,7 @@ class QrLoginController extends Controller
                     'msg' => 'login success',
                     'access_token' => $token,
                     'token_type' => 'bearer',
-                    'token_expires_in' => auth()->factory()->getTTL() * 60,
+                    'token_expires_in' => auth()->factory()->getTTL() * 1440,
                     'user' => auth()->user()
                 );
 
