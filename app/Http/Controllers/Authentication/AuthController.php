@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Validator;
 use Hashids\Hashids;
-use Illuminate\Support\Facades\Crypt;
 
 class AuthController extends Controller
 {
