@@ -191,6 +191,8 @@ class QrLoginController extends Controller
     public function qrCodeDoLogin(Request $request){
         $login = $_GET['login'];
         $key = $_GET['key'];
+        $scanTime = $_GET['scanTime'];
+        $deviceInfo = $_GET['deviceInfo'];
         $qrPath = Crypt::decrypt($_GET['qrpath']);
 
         $mem = new \Memcached();
@@ -211,6 +213,8 @@ class QrLoginController extends Controller
         } else {
             if($login){
                 $data['user_id'] = $login;
+                $data['scan_time'] = $scanTime;
+                $data['scan_device'] = $deviceInfo;
                 $res = json_encode($data);
                 $mem->set($key, $res, 180);
 
@@ -312,6 +316,8 @@ class QrLoginController extends Controller
                 $return = array(
                     'status' => 1,
                     'msg' => 'login success',
+                    'scan_time' => $data['scan_time'],
+                    'scan_device' => $data['scan_device'],
                     'access_token' => $authToken,
                     'token_type' => 'bearer',
                     'token_expires_in' => auth()->factory()->getTTL(),
