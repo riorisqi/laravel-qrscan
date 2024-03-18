@@ -47,7 +47,7 @@ class AuthController extends Controller
             'status' => 'success',
             'access_token' => $token,
             'token_type' => 'bearer',
-            'token_expires_in' => auth()->factory()->getTTL() * 1440,
+            'token_expires_in' => auth()->factory()->getTTL() * 60,
             'user_qr_passcode' => $hashedId,
             'user' => auth()->user()
         ]);
@@ -129,7 +129,7 @@ class AuthController extends Controller
             'user' => auth()->user(),
             'access_token' => auth()->refresh(),
             'token_type' => 'bearer',
-            'token_expires_in' => auth()->factory()->getTTL() * 1440,
+            'token_expires_in' => auth()->factory()->getTTL() * 60,
         ]);
     }
     

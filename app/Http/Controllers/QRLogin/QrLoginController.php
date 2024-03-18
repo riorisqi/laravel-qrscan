@@ -320,7 +320,7 @@ class QrLoginController extends Controller
                     'scan_device' => $data['scan_device'],
                     'access_token' => $authToken,
                     'token_type' => 'bearer',
-                    'token_expires_in' => auth()->factory()->getTTL(),
+                    'token_expires_in' => auth()->factory()->getTTL() * 60,
                     'user' => auth()->user()
                 );
 
