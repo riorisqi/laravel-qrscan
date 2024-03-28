@@ -39,7 +39,7 @@ class QrLoginController extends Controller
      *
      * @param id
      *
-     * @return hashid
+     * @return String
      */
     private function hashUserId($id){
         $hashIds = new Hashids('qrhash', 16);
@@ -52,7 +52,7 @@ class QrLoginController extends Controller
      *
      * @param hashId
      *
-     * @return hashid
+     * @return id
      */
     private function unHashUserId($hashId){
         $hashIds = new Hashids('qrhash', 16);
@@ -76,10 +76,10 @@ class QrLoginController extends Controller
         $key = Str::random(30);
         $random = mt_rand(1000000000, 9999999999);
         $_SESSION['qrcode_name'] = $key ; // get session key for qr code value
-        $forhash = substr($random,0,2);
+        $forhash = substr($random, 0, 2);
         
         $sign_data = $this->HashUserID($forhash);
-        $sign = strrev(substr($key,0,2)).$sign_data ; // generate sign data
+        $sign = strrev(substr($key, 0, 2)).$sign_data ; // generate sign data
         
         $value = $http .'?key='. $key .'&type=1'; // combined data for qr code value
         
@@ -104,12 +104,16 @@ class QrLoginController extends Controller
         $qrAssets = asset('assets/img/qrcodeimg/'. $key .'.png');
         
         // store key session and sign in Memcached, expiration time is three minutes
-        $mem = new \Memcached();
+        $mem = new Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
             Config::get('constant.memcached_const.port')
         );
-        $res = json_encode(array('sign'=> $sign ,'type' => 0, 'qrpath' => $qrPathEncrypted));
+        $res = json_encode(array(
+            'sign' => $sign,
+            'type' => 0,
+            'qrpath' => $qrPathEncrypted
+        ));
         $mem->set($key,$res ,180);
   
         // if qr code expired and user generate new one
@@ -147,7 +151,7 @@ class QrLoginController extends Controller
         $http = $url .'/api/qrlogin/mobile/login';
 
         // get key data from memcached to check
-        $mem = new \Memcached();
+        $mem = new Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
             Config::get('constant.memcached_const.port')
@@ -156,8 +160,8 @@ class QrLoginController extends Controller
           
         if(empty($data)){
             $return = array(
-                'status'=>2,
-                'msg'=>'expired'
+                'status' => 2,
+                'msg' => 'expired'
             );
 
             return response()->json($return, 200);
@@ -195,7 +199,7 @@ class QrLoginController extends Controller
         $deviceInfo = $_GET['deviceInfo'];
         $qrPath = Crypt::decrypt($_GET['qrpath']);
 
-        $mem = new \Memcached();
+        $mem = new Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
             Config::get('constant.memcached_const.port')
@@ -219,13 +223,16 @@ class QrLoginController extends Controller
                 $mem->set($key, $res, 180);
 
                 unlink($qrPath); // delete qr file
-                $return = array('status'=>1,'msg' =>'Login successful' );
+                $return = array(
+                    'status' => 1,
+                    'msg' => 'Login successful'
+                );
 
                 return response()->json($return, 200);
             } else {
                 $return = array(
                     'status' => 0,
-                    'msg' => 'Wrong user information'
+                    'msg' => 'Login failed'
                 );
 
                 return response()->json($return, 401);
@@ -241,28 +248,31 @@ class QrLoginController extends Controller
     */
     public function isScanQrcodeWeb(Request $request){
         $key = $request['key'];
-        $mem = new \Memcached();
+
+        $mem = new Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
             Config::get('constant.memcached_const.port')
         );
-        $data = json_decode($mem->get($key),true);
+
+        $data = json_decode($mem->get($key), true);
+
         if(empty($data)){
-                $return = array(
-                    'status' => 2,
-                    'msg' => 'expired'
-                );
+            $return = array(
+                'status' => 2,
+                'msg' => 'expired'
+            );
         } else {
-            if($data['type']){
+            if($data['type'] == 1){
                 $return = array(
                     'status' => 1,
-                    'msg' => 'success'
+                    'msg' => 'QR code scanned, attempting login'
                 );
 
             } else {
                 $return = array(
                     'status' => 0,
-                    'msg' => ''
+                    'msg' => 'QR code hasn\'t been scanned'
                 );
             }
         }
@@ -277,7 +287,7 @@ class QrLoginController extends Controller
     */
     public function webLoginEntry(Request $request){
         $key = $request['key'];
-        $mem = new \Memcached();
+        $mem = new Memcached();
         $mem->addServer(
             Config::get('constant.memcached_const.host'),
             Config::get('constant.memcached_const.port')
@@ -296,11 +306,6 @@ class QrLoginController extends Controller
             if (isset($data['user_id'])){
                 $unHashedUserId = $this->unHashUserId($data['user_id']);
 
-                Validator::make(
-                    ['id' => $unHashedUserId],
-                    ['id' => 'required']
-                );
-
                 // Validate user ID
                 $user = User::where('id', $unHashedUserId)->first();
 
@@ -312,6 +317,8 @@ class QrLoginController extends Controller
                 }
 
                 $authToken = auth()->login($user);
+
+                $mem->delete($key);
 
                 $return = array(
                     'status' => 1,
